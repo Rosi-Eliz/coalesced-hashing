@@ -54,6 +54,7 @@ public:
 
 int main(int argc, const char * argv[]) {
 //    ADS_set<int> set {1,2,3,4};
+    ADS_set<int> setd;
     ADS_set<int> set1 {5,6,7,8,9};
     
     ADS_set<int> set(set1);
