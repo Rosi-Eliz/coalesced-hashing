@@ -113,7 +113,7 @@ private:
     std::vector<container_type*> chainedBuckets(container_type* origin);
     std::pair<size_type, size_type> cellarDescriptor() const;
     bool bucketIsInCellar(const container_type* bucket) const;
-    container_type* assignCollisionElement(container_type* parentBucket, key_type key);
+    void assignCollisionElement(container_type* parentBucket, key_type key);
 };
 
 template <typename Key, size_t N>
@@ -222,7 +222,7 @@ ADS_set<Key, N>::~ADS_set()
 }
 
 template <typename Key, size_t N>
-ADS_set<Key, N>& ADS_set<Key, N>::operator=(const ADS_set &other) // changed from using swap function because parameter must remain const qualified
+ADS_set<Key, N>& ADS_set<Key, N>::operator=(const ADS_set &other) 
 {
     if(this == &other)
         return *this;
@@ -239,7 +239,7 @@ ADS_set<Key, N>& ADS_set<Key, N>::operator=(std::initializer_list<key_type> ilis
 {
     ADS_set<Key, N> helpInstance(ilist);
     
-    swap(helpInstance); //tuk polzvashe friend funkciqta i ne q namirashe
+    swap(helpInstance);
     return *this;
 }
 
@@ -295,21 +295,16 @@ void ADS_set<Key, N>::clear()
     }
 }
 
-/*
- 1. Implement a method, which specifies if a bucket is in a cellar or in a non-cellar
- 2. Implement a method, which receives a bucket and a key and returns an already linked bucket for the new element
- */
-
 template <typename Key, size_t N>
 bool ADS_set<Key, N>::bucketIsInCellar(const container_type* bucket) const
 {
-    container_type* cellarBegin = &buckets[cellarDescriptor().first];
+    container_type* cellarBegin = &buckets[cellarDescriptor().second];
     return bucket - cellarBegin >= 0;
 }
 
 //Implementing varied insertion
 template <typename Key, size_t N>
-typename ADS_set<Key, N>::container_type* ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_type key)
+void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_type key)
 {
     auto chainedElements = chainedBuckets(parentBucket);
     container_type* bucketForInsertion = chainedElements.back();
@@ -324,7 +319,7 @@ typename ADS_set<Key, N>::container_type* ADS_set<Key, N>::assignCollisionElemen
         
         if(bucketForInsertion == setLastElement && bucketForInsertion->isOccupied)
         {
-            bucketForInsertion = &buckets[cellarDescriptor().first];
+            bucketForInsertion = &buckets[cellarDescriptor().second];
             do
             {
                 bucketForInsertion--;
@@ -342,9 +337,9 @@ typename ADS_set<Key, N>::container_type* ADS_set<Key, N>::assignCollisionElemen
     {
         do {
             bucketForInsertion++;
-        } while (bucketForInsertion->isOccupied &&  bucketForInsertion != &buckets[cellarDescriptor().first]);
+        } while (bucketForInsertion->isOccupied &&  bucketForInsertion != &buckets[cellarDescriptor().second]);
         
-        if(bucketForInsertion == &buckets[cellarDescriptor().first])
+        if(bucketForInsertion == &buckets[cellarDescriptor().second])
         {
             bucketForInsertion = chainedElements.back();
             while(bucketForInsertion != &buckets[0] && bucketForInsertion->isOccupied)
@@ -355,7 +350,7 @@ typename ADS_set<Key, N>::container_type* ADS_set<Key, N>::assignCollisionElemen
             if(bucketForInsertion == &buckets[0] && bucketForInsertion->isOccupied)
             // Only applicable to static hash sets. Since the current data structure is
             // a dynamic one this should be impossible to happen
-            throw std::runtime_error("Hashtable is full");
+                throw std::runtime_error("Hashtable is full");
             
         }
     }
@@ -380,8 +375,7 @@ void ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
         return;
     }
     //plugs in new cellar functionality using varied-insertion technique
-    
-    assignCollisionElement(currentBucket, key);
+//    assignCollisionElement(currentBucket, key);
     
     while(currentBucket->isOccupied)
     {
@@ -389,12 +383,11 @@ void ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
         {
             Bucket* newBucket = currentBucket;
             while (newBucket->isOccupied) {
-                //* added ampersant
+                
                 if(newBucket == &buckets[capacity - 1])
                     throw std::runtime_error("Out of range");
                 newBucket++;
             }
-            //* changed to pair
             newBucket->keyTypeValue = key;
             newBucket->isOccupied = true;
             currentBucket->next = newBucket;
@@ -432,7 +425,7 @@ bool ADS_set<Key, N>::empty() const
 template <typename Key, size_t N>
 double ADS_set<Key, N>::load_factor() const
 {
-    return size() / capacity;
+    return capacity > 0 ? size() / capacity : 0;
 }
 
 template <typename Key, size_t N>
@@ -592,20 +585,14 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::end() const
     }
 }
 
-template <typename Key, size_t N>
-std::pair<typename ADS_set<Key, N>::size_type, typename ADS_set<Key, N>::size_type> ADS_set<Key, N>::cellarDescriptor() const
-{
-    size_type cellarSize = capacity - ceil(capacity * CELLAR_COEFFICIENT);
-    size_type cellarInitialIndex = capacity - cellarSize;
-    return {cellarInitialIndex, cellarSize};
-}
+//template <typename Key, size_t N>
+//std::pair<typename ADS_set<Key, N>::size_type, typename ADS_set<Key, N>::size_type> ADS_set<Key, N>::cellarDescriptor() const
+//{
+//    size_type cellarSize = capacity - ceil(capacity * CELLAR_COEFFICIENT);
+//    size_type cellarInitialIndex = capacity - cellarSize;
+//    return {cellarInitialIndex, cellarSize};
+//}
 
-
-/*
- Output of the container content to the stream or similar . There is no specification for the functionality of dump () , ie what the method writes to the stream is not prescribed. It is also permissible for the method to return nothing. However, it is advisable to output at least all the elements it contains. When testing, it can also be helpful if the output also shows the state of the data structure in some form.
- 
- In the event of errors, the unit test outputs the contents of the container using this method in order to facilitate troubleshooting. However, if the output is too extensive, it can be shortened during the unit test. It can be assumed that during the unit test the container is only instantiated with element data types ( key_type ) that support the output operator ( << ).
- */
 template <typename Key, size_t N>
 void ADS_set<Key, N>::dump(std::ostream &o) const
 {
