@@ -85,18 +85,17 @@ public:
     size_type size() const;
     bool empty() const;
     
-    size_type count(const key_type &key) const;
-    iterator find(const key_type &key) const;
-    
-    void clear();
-    void swap(ADS_set &other);
-    
     void insert(std::initializer_list<key_type> ilist);
     std::pair<iterator,bool> insert(const key_type &key);
+
     template<typename InputIt>
     void insert(InputIt first, InputIt last);
     
+    void clear();
     size_type erase(const key_type &key);
+    void swap(ADS_set &other);
+    size_type count(const key_type &key) const;
+    iterator find(const key_type &key) const;
     
     const_iterator begin() const;
     const_iterator end() const;
@@ -104,6 +103,7 @@ public:
     void dump(std::ostream &o = std::cerr) const;
     friend bool operator==<Key, N>(const ADS_set& first, const ADS_set& second);
     friend bool operator!=<Key, N>(const ADS_set& first, const ADS_set& second);
+    
 private:
     bool insertIntoPlace(size_t index, key_type key);
     double load_factor() const;
@@ -137,6 +137,10 @@ public:
             return *this;
         }
         container_type_pointer currentBucket = this->ptr;
+//        else if(set->end().ptr - ptr > 0)
+//        {
+//            ptr++; -> zashto tova ne raboti i gi cikli do kraq na containera v testa?
+//        }
         do {
             currentBucket++;
         }
@@ -156,6 +160,10 @@ public:
     friend difference_type operator-(const Iterator& first, const Iterator& second) {return first.ptr - second.ptr;};
     friend bool operator==(const Iterator &lhs, const Iterator &rhs) {return lhs.ptr == rhs.ptr;};
     friend bool operator!=(const Iterator &lhs, const Iterator &rhs) {return lhs.ptr != rhs.ptr;};
+    container_type_pointer getBucket() const
+    {
+        return ptr;
+    }
 private:
     container_type_pointer ptr;
     const ADS_set* set;
@@ -189,35 +197,10 @@ bool  operator!=(const ADS_set<Key, N>& first, const ADS_set<Key, N>& second)
 }
 
 template <typename Key, size_t N>
-ADS_set<Key, N>::ADS_set() : buckets(new Bucket[N]{}) {}
+ADS_set<Key, N>::ADS_set() : buckets(N > 0 ? new Bucket[N] : nullptr) {}
 
 template <typename Key, size_t N>
-ADS_set<Key, N>::ADS_set(std::initializer_list<key_type> list) : buckets(new Bucket[N]{})
-{
-    for(auto& key : list)
-    {
-        if(insertAndRehash(key))
-            elements++;
-    }
-}
-
-template <typename Key, size_t N>
-template <typename InputIt>
-ADS_set<Key, N>::ADS_set(InputIt first, InputIt last) : ADS_set()
-{
-    auto dist = std::distance(first, last);
-    if(dist <= 0)
-        return;
-    while(first != last)
-    {
-        if(insertAndRehash(*first))
-            elements++;
-        first++;
-    }
-}
-
-template <typename Key, size_t N>
-void ADS_set<Key, N>::insert(std::initializer_list<key_type> list)
+ADS_set<Key, N>::ADS_set(std::initializer_list<key_type> list) : ADS_set()
 {
     for(auto& key : list)
     {
@@ -226,12 +209,15 @@ void ADS_set<Key, N>::insert(std::initializer_list<key_type> list)
 }
 
 template <typename Key, size_t N>
+template <typename InputIt>
+ADS_set<Key, N>::ADS_set(InputIt first, InputIt last) : ADS_set()
+{
+    insert(first, last);
+}
+
+template <typename Key, size_t N>
 ADS_set<Key, N>::ADS_set(const ADS_set &other)
 {
-//    delete [] buckets;
-//    capacity = other.capacity
-//    buckets = capacity ? new Bucket[capacity] : nullptr;
-//    memmove(buckets, other.buckets, capacity * sizeof(container_type));
     *this = other;
 }
 
@@ -252,6 +238,7 @@ ADS_set<Key, N>& ADS_set<Key, N>::operator=(const ADS_set &other)
     delete[] buckets;
     
     capacity = other.capacity;
+    elements = other.elements;
     buckets = capacity ? new Bucket[capacity] : nullptr;
     memmove(buckets, other.buckets, capacity * sizeof(container_type));
     return *this;
@@ -263,6 +250,136 @@ ADS_set<Key, N>& ADS_set<Key, N>::operator=(std::initializer_list<key_type> ilis
     ADS_set<Key, N> helpInstance(ilist);
     swap(helpInstance);
     return *this;
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::size_type ADS_set<Key, N>::size() const //should be constant time
+{
+    return elements;
+}
+
+template <typename Key, size_t N>
+bool ADS_set<Key, N>::empty() const
+{
+    return size() == 0;
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key, N>::insert(std::initializer_list<key_type> list)
+{
+    for(auto& key : list)
+    {
+        insertAndRehash(key);
+    }
+}
+
+template <typename Key, size_t N>
+std::pair<typename ADS_set<Key, N>::iterator,bool> ADS_set<Key, N>::insert(const key_type &key)
+{
+    if(insertAndRehash(key))
+    {
+        return std::pair<iterator,bool>(find(key), true);
+    }
+    return std::pair<iterator,bool>(find(key), false);
+}
+
+template<typename Key, size_t N>
+template<typename InputIt>
+void ADS_set<Key, N>::insert(InputIt first, InputIt last)
+{
+    auto dist = std::distance(first, last);
+    if(dist < 0)
+        throw std::runtime_error("invalid range. " + std::to_string(static_cast<int>(dist)));;
+
+    while(first != last)
+    {
+        insertAndRehash(*first);
+        first++;
+    }
+}
+
+template <typename Key, size_t N>
+void ADS_set<Key, N>::clear()
+{
+    if(!empty())
+    {
+        for(size_type i{0}; i < capacity; i++)
+        {
+            buckets[i].isOccupied = false;
+            buckets[i].next = nullptr;
+        }
+        elements = 0;
+    }
+}
+
+template <typename Key, size_t N>
+std::vector<typename ADS_set<Key, N>::container_type*> ADS_set<Key, N>::chainedBuckets(container_type* origin)
+{
+    container_type* oldBucket = origin;
+    std::vector<container_type*> result;
+    while(oldBucket != nullptr)
+    {
+        if(!oldBucket->isOccupied)
+            throw std::runtime_error("Unoccupied bucked in the chain");
+        
+        result.push_back(oldBucket);
+        oldBucket = oldBucket->next;
+    }
+    return result;
+}
+
+template <typename Key, size_t N>
+typename ADS_set<Key, N>::size_type ADS_set<Key, N>::erase(const key_type& key)
+{
+    if(find(key) == end())
+    {
+        return 0;
+    }
+
+    size_type keyIndex = index(key);
+    Bucket* currentBucket = &buckets[keyIndex];
+
+    Bucket* predecessor = nullptr;
+    while(!key_equal()(currentBucket->keyTypeValue, key))
+    {
+        predecessor = currentBucket;
+        currentBucket = currentBucket->next;
+        if(currentBucket == nullptr)
+            throw std::runtime_error("Nullptr in erase chain");
+    }
+    if(predecessor != nullptr && predecessor->isOccupied)
+        predecessor->next = nullptr;
+
+    Bucket* successor = currentBucket->next;
+    currentBucket->isOccupied = false;
+    currentBucket->next = nullptr;
+
+    while(successor != nullptr)
+    {
+        Bucket* successorNext = successor->next;
+        size_type hashIndex = index(successor->keyTypeValue);
+        if(buckets[hashIndex].isOccupied) // we hit one of our already processed elements
+        {
+            Bucket* parentBucket = &buckets[hashIndex];
+            while(parentBucket->next != nullptr)
+            {
+                parentBucket = parentBucket->next;
+            }
+            parentBucket->next = successor; // our elements remains in place and becomes the end of the chained list of elements of the hit element
+            successor->isOccupied = true;
+            successor->next = nullptr;
+        }
+        else //we hit a new 'hole'
+        {
+            buckets[hashIndex] = *successor;
+            buckets[hashIndex].isOccupied = true;
+            successor->isOccupied = false;
+            successor->next = nullptr;
+        }
+        successor = successorNext;
+    }
+    elements--;
+    return 1;
 }
 
 template <typename Key, size_t N>
@@ -283,7 +400,10 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::find(const key_type& key) co
             Bucket* currentBucket = &buckets[keyIndex];
             while(currentBucket != nullptr && !key_equal()(currentBucket->keyTypeValue, key))
             {
-                currentBucket = currentBucket->next;
+                if(currentBucket->isOccupied)
+                    currentBucket = currentBucket->next;
+                else
+                    throw std::runtime_error("Unoccupied bucket in chain.");
             }
             if(currentBucket == nullptr )
                 return end();
@@ -302,19 +422,6 @@ typename ADS_set<Key, N>::size_type ADS_set<Key, N>::count(const key_type &key) 
     if(find(key) != end())
         return 1;
     return 0;
-}
-
-template <typename Key, size_t N>
-void ADS_set<Key, N>::clear()
-{
-    if(!empty())
-    {
-        for(size_type i{0}; i < capacity; i++)
-        {
-            buckets[i].isOccupied = false;
-            buckets[i].next = nullptr;
-        }
-    }
 }
 
 template <typename Key, size_t N>
@@ -352,7 +459,6 @@ void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_t
                 // Only applicable to static hash sets. Since the current data structure is
                 // a dynamic one this should be impossible to happen
                 throw std::runtime_error("Hashtable is full");
-            
         }
     }
     else
@@ -373,7 +479,6 @@ void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_t
             // Only applicable to static hash sets. Since the current data structure is
             // a dynamic one this should be impossible to happen
                 throw std::runtime_error("Hashtable is full");
-            
         }
     }
     currentChainEnd->next = bucketForInsertion;
@@ -397,47 +502,34 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
         return true;
     }
     //plugs in new cellar functionality using varied-insertion technique
-//    assignCollisionElement(currentBucket, key);
+    //    assignCollisionElement(currentBucket, key);
     
-    while(currentBucket->isOccupied)
+    Bucket* parentBucket = currentBucket;
+    while(currentBucket->next != nullptr)
     {
-        if(currentBucket->next == nullptr)
-        {
-            Bucket* newBucket = currentBucket->next;
-            newBucket->keyTypeValue = key;
-            newBucket->isOccupied = true;
-            currentBucket->next = newBucket;
-            return true;
-        }
+        if(!currentBucket->isOccupied)
+            throw std::runtime_error("Unoccupied bucket");
+        
         currentBucket = currentBucket->next;
     }
-    return false;
+    while(parentBucket->isOccupied){
+        auto distance = end() - iterator(parentBucket, this);
+        if(distance <= 0)
+            throw std::runtime_error("Out of range");
+        parentBucket++;
+    }
+    parentBucket->isOccupied = true;
+    parentBucket->keyTypeValue = key;
+    currentBucket->next = parentBucket;
+    return true;
 }
 
 template <typename Key, size_t N>
 void ADS_set<Key, N>::swap(ADS_set& other)
 {
+    std::swap(elements, other.elements);
     std::swap(capacity, other.capacity);
     std::swap(buckets, other.buckets);
-}
-
-template <typename Key, size_t N>
-typename ADS_set<Key, N>::size_type ADS_set<Key, N>::size() const //should be constant time
-{
-//    int count{0};
-//    for(size_type i{0}; i < capacity; i++)
-//    {
-//        if(buckets[i].isOccupied)
-//            count++;
-//    }
-//    return count;
-    return elements;
-}
-
-template <typename Key, size_t N>
-bool ADS_set<Key, N>::empty() const
-{
-    return size() == 0;
 }
 
 template <typename Key, size_t N>
@@ -461,29 +553,25 @@ void ADS_set<Key, N>::reserveAndRehashIfNecessary() {
     {
         return;
     }
-    Bucket* oldBuckets = buckets;
-    size_type oldCapacity = capacity;
-    capacity *= 2;
-    buckets = new Bucket[capacity];
-    for(size_type i{0}; i < oldCapacity; i++)
+    
+    ADS_set copy_set;
+    copy_set.capacity = capacity * 2;
+    copy_set.buckets = new Bucket[copy_set.capacity];
+    copy_set.elements = elements;
+    
+    int count{0};
+    for(auto& element : *this)
     {
-        Bucket bucketToCopy = oldBuckets[i];
-        if (!bucketToCopy.isOccupied)
-            continue;
-        else
-            insertIntoPlace(index(bucketToCopy.keyTypeValue), bucketToCopy.keyTypeValue);
+        if(element.i == 624194) {
+            std::cout<<"chesyn!";
+        }
+        count++;
+        copy_set.insertIntoPlace(index(element), element);
     }
-    delete [] oldBuckets;
-}
-
-template <typename Key, size_t N>
-std::pair<typename ADS_set<Key, N>::iterator,bool> ADS_set<Key, N>::insert(const key_type &key)
-{
-    auto it = find(key);
-    if(it != end())
-        return std::pair<iterator,bool>(it, false);
-    insertAndRehash(key);
-    return std::pair<iterator,bool>(find(key), true);
+    
+    delete [] buckets;
+    buckets = nullptr;
+    *this = copy_set;
 }
 
 template <typename Key, size_t N>
@@ -491,115 +579,29 @@ bool ADS_set<Key, N>::insertAndRehash(key_type key)
 {
     reserveAndRehashIfNecessary();
     size_type indexKey = index(key);
-    return insertIntoPlace(indexKey, key);
-}
-
-
-template<typename Key, size_t N>
-template<typename InputIt>
-void ADS_set<Key, N>::insert(InputIt first, InputIt last)
-{
-    auto dist = std::distance(first, last);
-//    throw std::runtime_error(std::to_string(static_cast<int>(dist)));
-    if(dist <= 0)
-        return;
-
-    while(first != last)
-    {
-        insertAndRehash(*first);
-        first++;
-    }
-}
-
-template <typename Key, size_t N>
-std::vector<typename ADS_set<Key, N>::container_type*> ADS_set<Key, N>::chainedBuckets(container_type* origin)
-{
-    container_type* oldBucket = origin;
-    std::vector<container_type*> result;
-    while(oldBucket != nullptr)
-    {
-        result.push_back(oldBucket);
-        oldBucket = oldBucket->next;
-    }
-    return result;
-}
-
-template <typename Key, size_t N>
-typename ADS_set<Key, N>::size_type ADS_set<Key, N>::erase(const key_type& key)
-{
-    if(find(key) == end())
-    {
-        return 0;
-    }
-
-    size_type keyIndex = index(key);
-    Bucket* currentBucket = &buckets[keyIndex];
-
-    Bucket* predecessor = nullptr;
-    while(!key_equal()(currentBucket->keyTypeValue, key))
-    {
-        predecessor = currentBucket;
-        currentBucket = currentBucket->next;
-    }
-    if(predecessor != nullptr && predecessor->isOccupied)
-        predecessor->next = nullptr;
-
-    Bucket* successor = currentBucket->next;
-    std::vector<Bucket*> chain = chainedBuckets(successor);
-    currentBucket->isOccupied = false;
-    currentBucket->next = nullptr;
-
-    for(Bucket* successor : chain)
-    {
-        size_type keyIndex = index(successor->keyTypeValue);
-        if(buckets[keyIndex].isOccupied) // we hit one of our already processed elements
-        {
-            Bucket* parentBucket = &buckets[keyIndex];
-            while(parentBucket->next != nullptr)
-            {
-                parentBucket = parentBucket->next;
-            }
-            parentBucket->next = successor; // our elements remains in place and becomes the end of the chained list of elements of the hit element
-            successor->next = nullptr;
-        }
-        else //we hit a new 'hole'
-        {
-            buckets[keyIndex] = *successor;
-            buckets[keyIndex].isOccupied = true;
-            successor->isOccupied = false;
-            successor->next = nullptr;
-        }
-    }
-return 1;
+    bool insertionTookPlace = insertIntoPlace(indexKey, key);
+    elements = insertionTookPlace ? elements + 1 : elements;
+    return insertionTookPlace;
 }
 
 template <typename Key, size_t N>
 typename ADS_set<Key, N>::iterator ADS_set<Key, N>::begin() const
 {
-    if(size() == 0) {
-        return iterator(&buckets[0], this);
+    if(empty())
+        return end();
+    
+    iterator it = iterator(&buckets[0], this);
+    while(!(it.getBucket())->isOccupied)
+    {
+        ++it;
     }
-    int i = 0;
-    while (i < capacity && !buckets[i].isOccupied ){
-        i++;
-        auto currentIterator = iterator(&buckets[i], this);
-        if (end() - currentIterator < 0)
-            return end();
-    }
-    return iterator(&buckets[i], this);
+    return it;
 }
 
 template <typename Key, size_t N>
 typename ADS_set<Key, N>::iterator ADS_set<Key, N>::end() const
 {
-    if (size() == 0)
-    {
-        return iterator(&buckets[0], this);
-    }
-    else
-    {
-        return iterator(&buckets[capacity], this);
-    }
+    return iterator(&buckets[capacity], this);
 }
 
 template <typename Key, size_t N>

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include "ADS_Set.h"
 #include <set>
+#include <vector>
 using namespace std;
 
 //template <typename T>
@@ -54,6 +55,9 @@ public:
 
 int main(int argc, const char * argv[]) {
 //    ADS_set<int> set {1,2,3,4};
+    vector<int> vec {1,2,3};
+    vector<int> vec2(vec.end(), vec.end());
+    
     ADS_set<int> setd;
     ADS_set<int> set1 {5,6,7,8,9};
     
