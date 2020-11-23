@@ -55,15 +55,15 @@ public:
 
 int main(int argc, const char * argv[]) {
 //    ADS_set<int> set {1,2,3,4};
-    vector<int> vec {1,2,3};
-    vector<int> vec2(vec.end(), vec.end());
-    
-    ADS_set<int> setd;
+//    vector<int> vec {1,2,3};
+//    vector<int> vec2(vec.end(), vec.end());
+//
+//    ADS_set<int> setd;
     ADS_set<int> set1 {5,6,7,8,9};
     
-    ADS_set<int> set(set1);
-    cout<<set.size();
+    set1.insert({1, 2, 3, 5, 6, 7, 9, 11});
     
+    cout<<set1.count(2);
     
 //    auto itS = set1.begin();
 //    auto itE = set1.end();

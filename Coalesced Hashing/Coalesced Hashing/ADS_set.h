@@ -32,7 +32,7 @@ class ADS_set
     // Instance variables
 public:
     class Iterator;
-    class Bucket;
+    struct Bucket;
     using container_type = Bucket;
     using value_type = Key;
     using key_type = Key;
@@ -265,9 +265,9 @@ bool ADS_set<Key, N>::empty() const
 }
 
 template <typename Key, size_t N>
-void ADS_set<Key, N>::insert(std::initializer_list<key_type> list)
+void ADS_set<Key, N>::insert(std::initializer_list<key_type> ilist)
 {
-    for(auto& key : list)
+    for(auto& key : ilist)
     {
         insertAndRehash(key);
     }
@@ -405,7 +405,7 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::find(const key_type& key) co
                 else
                     throw std::runtime_error("Unoccupied bucket in chain.");
             }
-            if(currentBucket == nullptr )
+            if(currentBucket == nullptr)
                 return end();
             
             return iterator(currentBucket, this);
@@ -518,6 +518,10 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
             throw std::runtime_error("Out of range");
         parentBucket++;
     }
+    auto x = iterator(parentBucket, this);
+    if(x == end())
+        throw std::runtime_error("End reached. Did not perform insertion");
+    
     parentBucket->isOccupied = true;
     parentBucket->keyTypeValue = key;
     currentBucket->next = parentBucket;
@@ -562,9 +566,6 @@ void ADS_set<Key, N>::reserveAndRehashIfNecessary() {
     int count{0};
     for(auto& element : *this)
     {
-        if(element.i == 624194) {
-            std::cout<<"chesyn!";
-        }
         count++;
         copy_set.insertIntoPlace(index(element), element);
     }
@@ -615,19 +616,20 @@ std::pair<typename ADS_set<Key, N>::size_type, typename ADS_set<Key, N>::size_ty
 template <typename Key, size_t N>
 void ADS_set<Key, N>::dump(std::ostream &o) const
 {
-    o<<"Set size: "<<size()<<std::endl;
+    o<<"Set size: "<<size()<<" Elements:["<<std::endl;
     
     bool firstIteration = true;
     for(auto element : *this)
     {
         if(!firstIteration)
-            o<<" "<<element;
+            o<<", "<<element;
         else
         {
             o<<element;
             firstIteration = false;
         }
     }
+    o<<"]";
 }
 
 #endif /* ADS_set_h */

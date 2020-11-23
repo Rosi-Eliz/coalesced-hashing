@@ -35,7 +35,7 @@
 /* Begin PBXFileReference section */
 		8048ABC7254208870091107B /* Coalesced Hashing */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Coalesced Hashing"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8048ABCA254208870091107B /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
-		8091FDC0255093F200D8252C /* simple_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = simple_test.h; sourceTree = "<group>"; };
+		8091FDC0255093F200D8252C /* simple_test.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; path = simple_test.cpp; sourceTree = "<group>"; };
 		8091FDC12550946500D8252C /* btest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = btest.cpp; sourceTree = "<group>"; };
 		80D15C5C255789DD006A9360 /* Coalesced Hashing Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Coalesced Hashing Tests"; sourceTree = BUILT_PRODUCTS_DIR; };
 		80D15C6825578CCE006A9360 /* ADS_set.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ADS_set.h; sourceTree = "<group>"; };
@@ -89,7 +89,7 @@
 		80D15C5D255789DD006A9360 /* Coalesced Hashing Tests */ = {
 			isa = PBXGroup;
 			children = (
-				8091FDC0255093F200D8252C /* simple_test.h */,
+				8091FDC0255093F200D8252C /* simple_test.cpp */,
 				8091FDC12550946500D8252C /* btest.cpp */,
 			);
 			path = "Coalesced Hashing Tests";
