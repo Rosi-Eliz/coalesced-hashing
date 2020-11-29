@@ -7,7 +7,6 @@
 
 #ifndef ADS_set_h
 #define ADS_set_h
-
 #define RANDOM_A 1375099069
 #define RANDOM_B 982669252
 #define RANDOM_LARGE_PRIME 2411993867
@@ -54,7 +53,6 @@ public:
         bool operator==(const Bucket& other) { return key_equal()(keyTypeValue, other.keyTypeValue) && next == other.next; }
         Bucket& operator=(const Bucket& other)
         {
-            delete next;
             isOccupied = other.isOccupied;
             keyTypeValue = other.keyTypeValue;
             next = other.next;
@@ -236,11 +234,14 @@ ADS_set<Key, N>& ADS_set<Key, N>::operator=(const ADS_set &other)
         return *this;
     
     delete[] buckets;
-    
+    buckets = other.capacity ? new Bucket[other.capacity] : nullptr;
     capacity = other.capacity;
     elements = other.elements;
-    buckets = capacity ? new Bucket[capacity] : nullptr;
-    memmove(buckets, other.buckets, capacity * sizeof(container_type));
+    for(auto keyTypeValue : other)
+    {
+        insertIntoPlace(index(keyTypeValue), keyTypeValue);
+    }
+   
     return *this;
 }
 
@@ -373,6 +374,7 @@ typename ADS_set<Key, N>::size_type ADS_set<Key, N>::erase(const key_type& key)
         {
             buckets[hashIndex] = *successor;
             buckets[hashIndex].isOccupied = true;
+            buckets[hashIndex].next = nullptr;
             successor->isOccupied = false;
             successor->next = nullptr;
         }
@@ -401,20 +403,20 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::find(const key_type& key) co
             while(currentBucket != nullptr && !key_equal()(currentBucket->keyTypeValue, key))
             {
                 if(currentBucket->isOccupied)
-                    currentBucket = currentBucket->next;
+                    currentBucket = currentBucket->next; //cikleshe bezkraino tuk
                 else
-                    throw std::runtime_error("Unoccupied bucket in chain.");
+//                    break;
+                    throw std::runtime_error("Unoccupied bucket in chain."); //tova e greshno zashtoto moje da imame iztrit element (unoccupied) i negoviq next chak da e nullptr
             }
-            if(currentBucket == nullptr)
-                return end();
-            
+            if(currentBucket == nullptr || !currentBucket->isOccupied){
+                return end(); //dali tova e ok s novata logika
+            }
             return iterator(currentBucket, this);
         }
     }
     else
         return end();
 }
-
 
 template <typename Key, size_t N>
 typename ADS_set<Key, N>::size_type ADS_set<Key, N>::count(const key_type &key) const
@@ -493,6 +495,8 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
     if(count(key) > 0)
         return false;
     
+    
+    
     Bucket* currentBucket = &buckets[index];
     if (!currentBucket->isOccupied)
     {
@@ -504,7 +508,6 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
     //plugs in new cellar functionality using varied-insertion technique
     //    assignCollisionElement(currentBucket, key);
     
-    Bucket* parentBucket = currentBucket;
     while(currentBucket->next != nullptr)
     {
         if(!currentBucket->isOccupied)
@@ -512,18 +515,29 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
         
         currentBucket = currentBucket->next;
     }
+    Bucket* parentBucket = currentBucket;
     while(parentBucket->isOccupied){
         auto distance = end() - iterator(parentBucket, this);
-        if(distance <= 0)
-            throw std::runtime_error("Out of range");
+        if(distance == 1)
+        {
+            break;
+        }
         parentBucket++;
     }
     auto x = iterator(parentBucket, this);
-    if(x == end())
-        throw std::runtime_error("End reached. Did not perform insertion");
+    if(end() - x == 1 && parentBucket->isOccupied)//note this
+    {
+        parentBucket = currentBucket;
+        do {
+            --parentBucket;
+        } while (parentBucket->isOccupied && parentBucket != &buckets[0]);
+    }
+    if(parentBucket == &buckets[0] && parentBucket->isOccupied)
+        throw std::runtime_error("this should not happen");
     
     parentBucket->isOccupied = true;
     parentBucket->keyTypeValue = key;
+    parentBucket->next = nullptr;
     currentBucket->next = parentBucket;
     return true;
 }
@@ -539,7 +553,10 @@ void ADS_set<Key, N>::swap(ADS_set& other)
 template <typename Key, size_t N>
 double ADS_set<Key, N>::load_factor() const
 {
-    return capacity > 0 ? size() / capacity : 1;
+    if (capacity - size() == 1) {
+        return 1;
+    }
+    return capacity > 0 ? static_cast<double>(size()) / capacity : 1;
 }
 
 template <typename Key, size_t N>
@@ -558,21 +575,19 @@ void ADS_set<Key, N>::reserveAndRehashIfNecessary() {
         return;
     }
     
-    ADS_set copy_set;
-    copy_set.capacity = capacity * 2;
-    copy_set.buckets = new Bucket[copy_set.capacity];
-    copy_set.elements = elements;
+    Bucket* currentBuckets = buckets;
+    size_type oldCapacity = capacity;
+    capacity *= 2;
     
-    int count{0};
-    for(auto& element : *this)
+    buckets = new Bucket[capacity];
+    for(size_type i{0}; i < oldCapacity; i++)
     {
-        count++;
-        copy_set.insertIntoPlace(index(element), element);
+        Bucket bucket = currentBuckets[i];
+        if(bucket.isOccupied)
+            insertIntoPlace(index(bucket.keyTypeValue), bucket.keyTypeValue);
     }
     
-    delete [] buckets;
-    buckets = nullptr;
-    *this = copy_set;
+    delete [] currentBuckets;
 }
 
 template <typename Key, size_t N>
@@ -616,7 +631,7 @@ std::pair<typename ADS_set<Key, N>::size_type, typename ADS_set<Key, N>::size_ty
 template <typename Key, size_t N>
 void ADS_set<Key, N>::dump(std::ostream &o) const
 {
-    o<<"Set size: "<<size()<<" Elements:["<<std::endl;
+    o<<"Set size: "<<size()<<" Set capacity: "<<capacity<<" Elements:["<<std::endl;
     
     bool firstIteration = true;
     for(auto element : *this)
@@ -631,5 +646,4 @@ void ADS_set<Key, N>::dump(std::ostream &o) const
     }
     o<<"]";
 }
-
 #endif /* ADS_set_h */
