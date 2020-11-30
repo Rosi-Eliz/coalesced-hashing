@@ -15,6 +15,7 @@
 #define RESERVE_THRESHOLD 0.75
 #include <string>
 #include <vector>
+#include <math.h>
 
 template <typename Key, size_t N >
 class ADS_set;
@@ -288,14 +289,11 @@ template<typename Key, size_t N>
 template<typename InputIt>
 void ADS_set<Key, N>::insert(InputIt first, InputIt last)
 {
-    auto dist = std::distance(first, last);
-    if(dist < 0)
-        throw std::runtime_error("invalid range. " + std::to_string(static_cast<int>(dist)));;
-
-    while(first != last)
+    auto firstCopy {first};
+    while(firstCopy != last)
     {
-        insertAndRehash(*first);
-        first++;
+        insertAndRehash(*firstCopy);
+        firstCopy++;
     }
 }
 
@@ -623,7 +621,8 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::end() const
 template <typename Key, size_t N>
 std::pair<typename ADS_set<Key, N>::size_type, typename ADS_set<Key, N>::size_type> ADS_set<Key, N>::cellarDescriptor() const
 {
-    size_type cellarSize = capacity - ceil(capacity * CELLAR_COEFFICIENT);
+    double value = capacity * CELLAR_COEFFICIENT;
+    size_type cellarSize = capacity - ceil(value);
     size_type cellarInitialIndex = capacity - cellarSize;
     return {cellarInitialIndex, cellarSize};
 }
