@@ -69,6 +69,9 @@ private:
     Bucket* buckets = nullptr;
     size_type capacity = N;
     size_type elements = 0;
+    Bucket* nextFreeInCellar;
+    Bucket* nextFreeOutOfCellar;
+//    bool searchFromTop = false;
     // Instance methods
 public:
     ADS_set();
@@ -112,6 +115,7 @@ private:
     std::vector<container_type*> chainedBuckets(container_type* origin);
     std::pair<size_type, size_type> cellarDescriptor() const;
     bool bucketIsInCellar(const container_type* bucket) const;
+    bool cellarIsFull() const;
     void assignCollisionElement(container_type* parentBucket, key_type key);
 };
 
@@ -136,10 +140,6 @@ public:
             return *this;
         }
         container_type_pointer currentBucket = this->ptr;
-//        else if(set->end().ptr - ptr > 0)
-//        {
-//            ptr++; -> zashto tova ne raboti i gi cikli do kraq na containera v testa?
-//        }
         do {
             currentBucket++;
         }
@@ -196,7 +196,10 @@ bool  operator!=(const ADS_set<Key, N>& first, const ADS_set<Key, N>& second)
 }
 
 template <typename Key, size_t N>
-ADS_set<Key, N>::ADS_set() : buckets(N > 0 ? new Bucket[N] : nullptr) {}
+ADS_set<Key, N>::ADS_set() : buckets(N > 0 ? new Bucket[N] : nullptr) {
+    nextFreeInCellar = &buckets[cellarDescriptor().first];
+    nextFreeOutOfCellar = &buckets[cellarDescriptor().first - 1];
+}
 
 template <typename Key, size_t N>
 ADS_set<Key, N>::ADS_set(std::initializer_list<key_type> list) : ADS_set()
@@ -238,6 +241,8 @@ ADS_set<Key, N>& ADS_set<Key, N>::operator=(const ADS_set &other)
     buckets = other.capacity ? new Bucket[other.capacity] : nullptr;
     capacity = other.capacity;
     elements = other.elements;
+    nextFreeOutOfCellar = other.nextFreeOutOfCellar;
+    nextFreeInCellar = other.nextFreeInCellar;
     for(auto keyTypeValue : other)
     {
         insertIntoPlace(index(keyTypeValue), keyTypeValue);
@@ -401,13 +406,12 @@ typename ADS_set<Key, N>::iterator ADS_set<Key, N>::find(const key_type& key) co
             while(currentBucket != nullptr && !key_equal()(currentBucket->keyTypeValue, key))
             {
                 if(currentBucket->isOccupied)
-                    currentBucket = currentBucket->next; //cikleshe bezkraino tuk
+                    currentBucket = currentBucket->next;
                 else
-//                    break;
-                    throw std::runtime_error("Unoccupied bucket in chain."); //tova e greshno zashtoto moje da imame iztrit element (unoccupied) i negoviq next chak da e nullptr
+                    throw std::runtime_error("Unoccupied bucket in chain.");
             }
             if(currentBucket == nullptr || !currentBucket->isOccupied){
-                return end(); //dali tova e ok s novata logika
+                return end();
             }
             return iterator(currentBucket, this);
         }
@@ -431,6 +435,12 @@ bool ADS_set<Key, N>::bucketIsInCellar(const container_type* bucket) const
     return bucket - cellarBegin >= 0;
 }
 
+//template <typename Key, size_t N>
+//bool ADS_set<Key, N>::cellarIsFull() const
+//{
+//    return elementsInCellar == cellarDescriptor().second;
+//}
+
 //Implementing varied insertion
 template <typename Key, size_t N>
 void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_type key)
@@ -438,33 +448,69 @@ void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_t
     auto chainedElements = chainedBuckets(parentBucket);
     container_type* bucketForInsertion = chainedElements.back();
     container_type* currentChainEnd = chainedElements.back();
-    container_type* setLastElement = &buckets[static_cast<int>(size()) - 1];
-    if(bucketIsInCellar(bucketForInsertion))
+    
+    if(nextFreeInCellar != &buckets[capacity - 1]) //tuk beshe size
     {
-        do{
-            bucketForInsertion++;
-        }
-        while(bucketForInsertion != setLastElement && bucketForInsertion->isOccupied);
-        
-        if(bucketForInsertion == setLastElement && bucketForInsertion->isOccupied)
-        {
-            bucketForInsertion = &buckets[cellarDescriptor().second];
-            do
-            {
-                bucketForInsertion--;
-            }
-            while(bucketForInsertion != &buckets[0] && bucketForInsertion->isOccupied);
-            
-            if(bucketForInsertion == &buckets[0] && bucketForInsertion->isOccupied)
-                // Only applicable to static hash sets. Since the current data structure is
-                // a dynamic one this should be impossible to happen
-                throw std::runtime_error("Hashtable is full");
-        }
+        bucketForInsertion = nextFreeInCellar;
+        nextFreeInCellar++;
     }
+//    else if(cellarIsFull() && !searchFromTop){
+//        bucketForInsertion = &buckets[cellarDescriptor().second];
+//        do {
+//            bucketForInsertion--;
+//        } while(bucketForInsertion != chainedElements.back() && bucketForInsertion->isOccupied);
+//
+//        if(bucketForInsertion == chainedElements.back())
+//        {
+//            searchFromTop = true;
+//            bucketForInsertion = &buckets[0];
+//            while(bucketForInsertion != chainedElements.back() && bucketForInsertion->isOccupied)
+//            {
+//                bucketForInsertion++;
+//            }
+//
+//            if(bucketForInsertion == chainedElements.back() && bucketForInsertion->isOccupied)
+//                throw std::runtime_error("Hashtable is full");
+//        }
+//    }
+    else {
+        bucketForInsertion = nextFreeOutOfCellar;
+        while(bucketForInsertion != &buckets[0] && bucketForInsertion->isOccupied)
+        {
+            bucketForInsertion--;
+        }
+        
+        if(bucketForInsertion != &buckets[0] && bucketForInsertion->isOccupied)
+            throw std::runtime_error("Hashtable is full");
+        
+        nextFreeOutOfCellar = bucketForInsertion;
+    }
+   /* if(bucketIsInCellar(bucketForInsertion))
+        {
+            do{
+                bucketForInsertion++;
+            }
+            while(bucketForInsertion != setLastElement && bucketForInsertion->isOccupied);
+            
+            if(bucketForInsertion == setLastElement && bucketForInsertion->isOccupied)
+            {
+                bucketForInsertion = &buckets[cellarDescriptor().second];
+                do
+                {
+                    bucketForInsertion--;
+                }
+                while(bucketForInsertion != &buckets[0] && bucketForInsertion->isOccupied);
+                
+                if(bucketForInsertion == &buckets[0] && bucketForInsertion->isOccupied)
+                    // Only applicable to static hash sets. Since the current data structure is
+                    // a dynamic one this should be impossible to happen
+                    throw std::runtime_error("Hashtable is full");
+            }
+        }
     else
     {
         do {
-            bucketForInsertion++;
+            bucketForInsertion++; //cikli mnogo dulgo tuk na stresstest1 i stresstest2(randomized)
         } while (bucketForInsertion->isOccupied &&  bucketForInsertion != &buckets[cellarDescriptor().second]);
         
         if(bucketForInsertion == &buckets[cellarDescriptor().second])
@@ -480,7 +526,7 @@ void ADS_set<Key, N>::assignCollisionElement(container_type* parentBucket, key_t
             // a dynamic one this should be impossible to happen
                 throw std::runtime_error("Hashtable is full");
         }
-    }
+    }*/
     currentChainEnd->next = bucketForInsertion;
     bucketForInsertion->keyTypeValue = key;
     bucketForInsertion->isOccupied = true;
@@ -504,13 +550,13 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
         return true;
     }
     //plugs in new cellar functionality using varied-insertion technique
-    //    assignCollisionElement(currentBucket, key);
+//        assignCollisionElement(currentBucket, key);
     
     while(currentBucket->next != nullptr)
     {
         if(!currentBucket->isOccupied)
             throw std::runtime_error("Unoccupied bucket");
-        
+
         currentBucket = currentBucket->next;
     }
     Bucket* parentBucket = currentBucket;
@@ -532,7 +578,7 @@ bool ADS_set<Key, N>::insertIntoPlace(size_t index, key_type key)
     }
     if(parentBucket == &buckets[0] && parentBucket->isOccupied)
         throw std::runtime_error("this should not happen");
-    
+
     parentBucket->isOccupied = true;
     parentBucket->keyTypeValue = key;
     parentBucket->next = nullptr;
@@ -561,7 +607,7 @@ template <typename Key, size_t N>
 typename ADS_set<Key, N>::size_type ADS_set<Key, N>::index(key_type key) const {
     size_type hash = hasher()(key);
 //    If cellar:
-//    size_type range = cellarDescriptor().second > 0? cellarDescriptor().second : 1;
+//    size_type range = capacity - cellarDescriptor().second;
 //    return hash % range;
     return hash % capacity;
 }
@@ -575,7 +621,7 @@ void ADS_set<Key, N>::reserveAndRehashIfNecessary() {
     
     Bucket* currentBuckets = buckets;
     size_type oldCapacity = capacity;
-    capacity *= 2;
+    capacity *= 2; // dali da ne e +1 ako pochvame s prazen set
     
     buckets = new Bucket[capacity];
     for(size_type i{0}; i < oldCapacity; i++)

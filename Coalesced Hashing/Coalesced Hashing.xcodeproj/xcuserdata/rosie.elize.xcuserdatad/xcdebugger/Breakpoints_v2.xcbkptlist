@@ -7,32 +7,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "71811924-A1BD-408A-9875-158BEFCB02F6"
-            shouldBeEnabled = "No"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "Coalesced Hashing/main.cpp"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "60"
-            endingLineNumber = "60"
-            landmarkName = "main(argc, argv)"
-            landmarkType = "9">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "DFF7A78A-6278-430F-8D19-615335791141"
+            uuid = "E679BE15-BB46-4ACC-9458-3F84DA6FC854"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "Coalesced Hashing/main.cpp"
+            filePath = "Coalesced Hashing Tests/btest.cpp"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "66"
-            endingLineNumber = "66"
-            landmarkName = "main(argc, argv)"
+            startingLineNumber = "1309"
+            endingLineNumber = "1309"
+            landmarkName = "do_stresstest1(gen)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>

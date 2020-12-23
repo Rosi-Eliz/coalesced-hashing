@@ -1305,6 +1305,9 @@ void do_stresstest1(RNG* const gen) {
     {
         auto start = std::chrono::high_resolution_clock::now();
         for(auto const& v: vs) {
+            if(v.i == 483863) {
+                int rosi;
+            }
             if(!a.count(v)) {
                 std::cerr << RED("[stresstest1] err: missing value " << v << '\n');
                 std::abort();
